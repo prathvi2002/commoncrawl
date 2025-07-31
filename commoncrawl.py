@@ -59,7 +59,7 @@ def query_cdx(domain, index_id):
     return urls
 
 def main():
-    parser = argparse.ArgumentParser(description="Get all URLs from all Common Crawl indexes for a domain.\nSimple usage: commoncrawl example.com", formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description="Get all URLs from all Common Crawl indexes for a domain.\nSimple usage example: commoncrawl example.com", formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("url", help="Domain to search (e.g., example.com)")
     parser.add_argument("--after", type=int, help="Only use indexes from this year onward (e.g., 2022)")
     parser.add_argument("--before", type=int, help="Only use indexes before this year (e.g., 2022)")

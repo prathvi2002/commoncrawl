@@ -7,7 +7,7 @@ from urllib.parse import quote_plus
 from rich import print
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
+import os
 
 # Base URL of the Common Crawl CDX index.
 CDX_BASE = "https://index.commoncrawl.org"
@@ -67,6 +67,8 @@ def main():
     parser.add_argument("-a", "--after", type=int, help="Only use indexes from this year onward. Example: --after 2024")
     parser.add_argument("-b", "--before", type=int, help="Only use indexes before this year. Example: --before 2026")
     parser.add_argument("-c", "--concurrency", type=int, default=1, help="Number of concurrent index queries (default: 1).\n2 concurrency is safe.")
+    parser.add_argument("-o", "--output", type=str, help="File to save output URLs.")
+    parser.add_argument( "-A", "--append", action="store_true", help=f"Append to the output file instead of overwriting (default: False).")
     
     args = parser.parse_args()
 
@@ -107,6 +109,18 @@ def main():
     print(f"\n[bold green]✅ Total unique URLs across all indexes: {len(total_urls)}[/bold green]")
     for url in sorted(total_urls):
         print(url)
+
+    if args.append:
+        file_method = "a"
+    else:
+        file_method = "w"
+
+    if args.output:
+        output_file = os.path.expanduser(f"{args.output}")
+
+        with open(output_file, file_method) as f:
+            for url in sorted(total_urls):
+                f.write(f"{url}\n")
 
 if __name__ == "__main__":
     main()

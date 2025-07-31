@@ -61,9 +61,10 @@ def query_cdx(domain, index_id):
 
     return urls
 
+
 def main():
     parser = argparse.ArgumentParser(description="Get all URLs from all Common Crawl indexes for a domain.\nSimple usage example: commoncrawl example.com", formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("url", help="Domain to search (e.g., example.com)")
+    parser.add_argument("domain", help="Domain to search (e.g., example.com)")
     parser.add_argument("-a", "--after", type=int, help="Only use indexes from this year onward. Example: --after 2024")
     parser.add_argument("-b", "--before", type=int, help="Only use indexes before this year. Example: --before 2026")
     parser.add_argument("-c", "--concurrency", type=int, default=1, help="Number of concurrent index queries (default: 1).\n2 concurrency is safe.")
@@ -72,28 +73,24 @@ def main():
     
     args = parser.parse_args()
 
-    if not args.url:
-        print("Provide a domain name. Example: commoncrawl example.com")
-        sys.exit(1)
-
     all_indexes = get_all_indexes(after=args.after, before=args.before)
     if not all_indexes:
         print("[red]❌ No indexes available. Exiting.[/red]")
         return
 
-    print(f"[blue]🔍 {len(all_indexes)} matching indexes selected for:[/blue] {args.url}")
+    print(f"[blue]🔍 {len(all_indexes)} matching indexes selected for:[/blue] {args.domain}")
     from threading import Lock
     total_urls = []
     url_lock = Lock()
 
     if args.concurrency == 1:
         for index in all_indexes:
-            urls = query_cdx(args.url, index)
+            urls = query_cdx(args.domain, index)
             print(f"[green]✓ {len(urls)} URLs found in index {index}[/green]")
             total_urls.extend(urls)
     else:
         with ThreadPoolExecutor(max_workers=args.concurrency) as executor:
-            futures = {executor.submit(query_cdx, args.url, index): index for index in all_indexes}
+            futures = {executor.submit(query_cdx, args.domain, index): index for index in all_indexes}
             for future in as_completed(futures):
                 index = futures[future]
                 try:

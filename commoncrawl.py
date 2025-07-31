@@ -5,6 +5,9 @@
 import requests, json, argparse, time
 from urllib.parse import quote_plus
 from rich import print
+import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 
 # Base URL of the Common Crawl CDX index.
 CDX_BASE = "https://index.commoncrawl.org"
@@ -61,9 +64,15 @@ def query_cdx(domain, index_id):
 def main():
     parser = argparse.ArgumentParser(description="Get all URLs from all Common Crawl indexes for a domain.\nSimple usage example: commoncrawl example.com", formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("url", help="Domain to search (e.g., example.com)")
-    parser.add_argument("--after", type=int, help="Only use indexes from this year onward (e.g., 2022)")
-    parser.add_argument("--before", type=int, help="Only use indexes before this year (e.g., 2022)")
+    parser.add_argument("-a", "--after", type=int, help="Only use indexes from this year onward. Example: --after 2024")
+    parser.add_argument("-b", "--before", type=int, help="Only use indexes before this year. Example: --before 2026")
+    parser.add_argument("-c", "--concurrency", type=int, default=1, help="Number of concurrent index queries (default: 1).\n2 concurrency is safe.")
+    
     args = parser.parse_args()
+
+    if not args.url:
+        print("Provide a domain name. Example: commoncrawl example.com")
+        sys.exit(1)
 
     all_indexes = get_all_indexes(after=args.after, before=args.before)
     if not all_indexes:
@@ -71,13 +80,29 @@ def main():
         return
 
     print(f"[blue]🔍 {len(all_indexes)} matching indexes selected for:[/blue] {args.url}")
-    total_urls = set()
+    from threading import Lock
+    total_urls = []
+    url_lock = Lock()
 
-    for index in all_indexes:
-        print(f"[bold cyan]→ Querying index:[/bold cyan] {index}")
-        urls = query_cdx(args.url, index)
-        print(f"[green]✓ {len(urls)} URLs found in {index}[/green]")
-        total_urls.update(urls)
+    if args.concurrency == 1:
+        for index in all_indexes:
+            urls = query_cdx(args.url, index)
+            print(f"[green]✓ {len(urls)} URLs found in index {index}[/green]")
+            total_urls.extend(urls)
+    else:
+        with ThreadPoolExecutor(max_workers=args.concurrency) as executor:
+            futures = {executor.submit(query_cdx, args.url, index): index for index in all_indexes}
+            for future in as_completed(futures):
+                index = futures[future]
+                try:
+                    urls = future.result()
+                    print(f"[green]✓ {len(urls)} URLs found in index {index}[/green]")
+                    with url_lock:
+                        total_urls.extend(urls)
+                except Exception as e:
+                    print(f"[red]❌ {index} crashed:[/red] {e}")
+
+    total_urls = list(set(total_urls))
 
     print(f"\n[bold green]✅ Total unique URLs across all indexes: {len(total_urls)}[/bold green]")
     for url in sorted(total_urls):
